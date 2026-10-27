@@ -1,30 +1,47 @@
-"use client"; //tells Next.js that this is a client component
+"use client";
 
-import {useState} from "react"; //is a react hook that lets you remember value and update it - we use it to remember what the user is typing.
-import {useChat} from "@ai-sdk/react";//a hook by vercel ai sdk , manage chat messages , send messages to backend , and track the status of conversations.
-import {DefaultChatTransport} from "ai"; // used to configure how chat messages are sent to backend API .
+import { useState } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { MODELS, DEFAULT_MODEL_ID } from "@/lib/models";
 
-export default function Home(){ //react uses this function to create the page - "export default" makes it thge main thing this file exports.
-const[input,setInput] = useState("");//input is the current value . set input we use it rather than changing input normally so that react knows it should update the interface .
+export default function Home() {
+  const [input, setInput] = useState("");
+  const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
 
-const { messages,sendMessage, status} = useChat({ 
-  transport: new DefaultChatTransport({
-    api: "/api/chat",
-    body: {modelId: "openai/gpt-4o-mini"},
-  }),
-});
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  });
 
-const isBusy = status === "submitted" || status === "streaming";// we use this to prevent sending messages when current message request is in progress.
+  const isBusy = status === "submitted" || status === "streaming";
 
-function handleSubmit(e: React.FormEvent){
-  e.preventDefault();
-  if(!input.trim() || isBusy) return;
-  sendMessage({text: input});
-  setInput("");
-}
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim() || isBusy) return;
+    sendMessage({ text: input }, { body: { modelId } });
+    setInput("");
+  }
 
   return (
     <main className="mx-auto flex h-screen max-w-2xl flex-col p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="model" className="text-sm font-medium">
+          Model:
+        </label>
+        <select
+          id="model"
+          value={modelId}
+          onChange={(e) => setModelId(e.target.value)}
+          className="rounded border px-2 py-1"
+        >
+          {MODELS.map((model) => (
+            <option key={model.id} value={model.id}>
+              {model.provider} - {model.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="flex-1 space-y-4 overflow-y-auto">
         {messages.map((message) => (
           <div
@@ -58,6 +75,3 @@ function handleSubmit(e: React.FormEvent){
     </main>
   );
 }
-
-
-
