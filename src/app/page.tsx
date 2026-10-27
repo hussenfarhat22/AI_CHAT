@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { MODELS, DEFAULT_MODEL_ID } from "@/lib/models";
+import type { ChatMessage } from "@/lib/types";
 
 export default function Home() {
   const [input, setInput] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status } = useChat<ChatMessage>({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
 
@@ -43,18 +44,24 @@ export default function Home() {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={message.role === "user" ? "text-right" : "text-left"}
-          >
-            <div className="inline-block max-w-[85%] whitespace-pre-wrap rounded-lg bg-gray-200 px-3 py-2 text-black">
-              {message.parts.map((part, i) =>
-                part.type === "text" ? <span key={i}>{part.text}</span> : null
-              )}
-            </div>
-          </div>
-        ))}
+        {messages.map((message) => {
+  const modelName = MODELS.find((m) => m.id === message.metadata?.model)?.name;
+  return (
+    <div
+      key={message.id}
+      className={message.role === "user" ? "text-right" : "text-left"}
+    >
+      {message.role === "assistant" && modelName && (
+        <div className="mb-1 text-xs text-gray-500">{modelName}</div>
+      )}
+      <div className="inline-block max-w-[85%] whitespace-pre-wrap rounded-lg bg-gray-200 px-3 py-2 text-black">
+        {message.parts.map((part, i) =>
+          part.type === "text" ? <span key={i}>{part.text}</span> : null
+        )}
+      </div>
+    </div>
+  );
+})}
       </div>
 
       <form onSubmit={handleSubmit} className="mt-4 flex gap-2">

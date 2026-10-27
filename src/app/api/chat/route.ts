@@ -22,5 +22,11 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(messages),
   });
 
-  return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+    messageMetadata: ({ part }) => {
+      if (part.type === "start") {
+        return { model: modelId };
+      }
+    },
+  });
 }
