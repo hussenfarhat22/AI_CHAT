@@ -22,7 +22,7 @@ export function saveConversations(list: Conversation[]): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
   } catch {
-    // Storage is full or blocked. We ignore it for now.
+    // Storage is full or blocked. 
   }
 }
 
@@ -31,4 +31,21 @@ export function saveMessages(id: string, messages: ChatMessage[]): void {
     c.id === id ? { ...c, messages, updatedAt: Date.now() } : c
   );
   saveConversations(updated);
+}
+export function createConversation(): Conversation {
+  return {
+    id: crypto.randomUUID(),
+    title: "New chat",
+    messages: [],
+    updatedAt: Date.now(),
+  };
+}
+
+export function makeTitle(messages: ChatMessage[]): string {
+  const first = messages.find((m) => m.role === "user");
+  const text = first?.parts
+    .map((p) => (p.type === "text" ? p.text : ""))
+    .join("")
+    .trim();
+  return text ? text.slice(0, 40) : "New chat";
 }

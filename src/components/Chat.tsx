@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,29 +5,30 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { MODELS, DEFAULT_MODEL_ID } from "@/lib/models";
 import type { ChatMessage } from "@/lib/types";
-import { saveMessages, type Conversation } from "@/lib/storage"; 
+import type { Conversation } from "@/lib/storage";
 
 export default function Chat({
-  conversation, 
+  conversation,
+  onMessagesChange,
 }: {
   conversation: Conversation;
+  onMessagesChange: (id: string, messages: ChatMessage[]) => void;
 }) {
   const [input, setInput] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
 
   const { messages, sendMessage, status } = useChat<ChatMessage>({
-    id: conversation.id, 
+    id: conversation.id,
     messages: conversation.messages,
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
 
   const isBusy = status === "submitted" || status === "streaming";
 
-  
   useEffect(() => {
     if (isBusy) return;
-    saveMessages(conversation.id, messages);
-  }, [messages, isBusy, conversation.id]);
+    onMessagesChange(conversation.id, messages);
+  }, [messages, isBusy, conversation.id, onMessagesChange]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +38,7 @@ export default function Chat({
   }
 
   return (
-    <main className="mx-auto flex h-screen max-w-2xl flex-col p-4">
+    <main className="mx-auto flex h-full w-full max-w-2xl flex-col p-4">
       <div className="mb-4 flex items-center gap-2">
         <label htmlFor="model" className="text-sm font-medium">
           Model:
