@@ -17,6 +17,7 @@ export default function Home() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Load the saved chats once, after the page opens.
   useEffect(() => {
@@ -85,17 +86,44 @@ export default function Home() {
   const active = conversations.find((c) => c.id === activeId);
   if (!loaded || !active) return null;
 
-  return (
-    <div className="flex h-screen">
-      <Sidebar
-        conversations={conversations}
-        activeId={active.id}
-        onNew={handleNew}
-        onSelect={setActiveId}
-        onRename={handleRename}
-        onDelete={handleDelete}
-      />
+   return (
+    <div className="flex h-dvh">
+      <div
+        className={`fixed inset-y-0 left-0 z-30 bg-background transition-transform md:static md:translate-x-0 ${
+          menuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <Sidebar
+          conversations={conversations}
+          activeId={active.id}
+          onNew={() => {
+            handleNew();
+            setMenuOpen(false);
+          }}
+          onSelect={(id) => {
+            setActiveId(id);
+            setMenuOpen(false);
+          }}
+          onRename={handleRename}
+          onDelete={handleDelete}
+        />
+      </div>
+
+      {menuOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/40 md:hidden"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
       <div className="relative min-w-0 flex-1">
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open chat list"
+          className="absolute left-3 top-3 z-10 rounded border bg-white px-3 py-1 text-sm text-black md:hidden dark:bg-gray-800 dark:text-white"
+        >
+          ☰
+        </button>
         <div className="absolute right-3 top-3 z-10">
           <ThemeToggle />
         </div>

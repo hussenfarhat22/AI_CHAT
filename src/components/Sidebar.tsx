@@ -41,7 +41,7 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r p-3">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r p-3">
       <button
         onClick={onNew}
         className="mb-3 rounded bg-black px-3 py-2 text-sm text-white dark:bg-white dark:text-black"

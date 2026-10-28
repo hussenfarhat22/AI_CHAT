@@ -39,7 +39,7 @@ export default function Chat({
 
   return (
     <main className="mx-auto flex h-full w-full max-w-2xl flex-col p-4">
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex items-center gap-2 pl-12 pr-28 md:pl-0">
         <label htmlFor="model" className="text-sm font-medium">
           Model:
         </label>
@@ -47,7 +47,7 @@ export default function Chat({
           id="model"
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
-          className="rounded border bg-white px-2 py-1 text-black dark:bg-gray-800 dark:text-white"
+          className="min-w-0 rounded border bg-white px-2 py-1 text-black dark:bg-gray-800 dark:text-white "
         >
           {MODELS.map((model) => (
             <option key={model.id} value={model.id}>
@@ -71,7 +71,7 @@ export default function Chat({
                 <div className="mb-1 text-xs text-gray-500">{modelName}</div>
               )}
               <div
-  className={`inline-block max-w-[85%] rounded-lg dark:bg-gray-700 dark:text-white ${
+  className={`inline-block break-words max-w-[85%] rounded-lg dark:bg-gray-700 dark:text-white ${
     message.role === "user" ? "whitespace-pre-wrap" : ""
   }`}
 >
