@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Chat from "@/components/Chat";
 import Sidebar from "@/components/Sidebar";
 import type { ChatMessage } from "@/lib/types";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   createConversation,
   loadConversations,
@@ -94,7 +95,10 @@ export default function Home() {
         onRename={handleRename}
         onDelete={handleDelete}
       />
-      <div className="min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1">
+        <div className="absolute right-3 top-3 z-10">
+          <ThemeToggle />
+        </div>
         <Chat
           key={active.id}
           conversation={active}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Conversation } from "@/lib/storage";
+//import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Sidebar({
   conversations,
@@ -43,7 +44,7 @@ export default function Sidebar({
     <aside className="flex w-64 shrink-0 flex-col border-r p-3">
       <button
         onClick={onNew}
-        className="mb-3 rounded bg-black px-3 py-2 text-sm text-white"
+        className="mb-3 rounded bg-black px-3 py-2 text-sm text-white dark:bg-white dark:text-black"
       >
         + New chat
       </button>
@@ -52,7 +53,7 @@ export default function Sidebar({
           <li
             key={c.id}
             className={`flex items-center gap-1 rounded ${
-              c.id === activeId ? "bg-gray-200 text-black" : "hover:bg-gray-100 hover:text-black"
+              c.id === activeId ? "bg-gray-200 text-black dark:bg-gray-700 dark:text-white" :  "hover:bg-gray-100 hover:text-black dark:hover:bg-gray-600 dark:hover:text-white"
             }`}
           >
             {editingId === c.id ? (
@@ -64,7 +65,7 @@ export default function Sidebar({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") commitRename();
                 }}
-                className="m-1 w-full rounded border px-2 py-1 text-sm text-black"
+                className="m-1 w-full rounded border px-2 py-1 text-sm text-black dark:bg-gray-800 dark:text-white"
               />
             ) : (
               <>
@@ -93,6 +94,7 @@ export default function Sidebar({
           </li>
         ))}
       </ul>
+      
     </aside>
   );
 }

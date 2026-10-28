@@ -6,7 +6,7 @@ import { DefaultChatTransport } from "ai";
 import { MODELS, DEFAULT_MODEL_ID } from "@/lib/models";
 import type { ChatMessage } from "@/lib/types";
 import type { Conversation } from "@/lib/storage";
-
+import Markdown from "@/components/Markdown";
 export default function Chat({
   conversation,
   onMessagesChange,
@@ -47,7 +47,7 @@ export default function Chat({
           id="model"
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
-          className="rounded border px-2 py-1"
+          className="rounded border bg-white px-2 py-1 text-black dark:bg-gray-800 dark:text-white"
         >
           {MODELS.map((model) => (
             <option key={model.id} value={model.id}>
@@ -70,11 +70,21 @@ export default function Chat({
               {message.role === "assistant" && modelName && (
                 <div className="mb-1 text-xs text-gray-500">{modelName}</div>
               )}
-              <div className="inline-block max-w-[85%] whitespace-pre-wrap rounded-lg bg-gray-200 px-3 py-2 text-black">
-                {message.parts.map((part, i) =>
-                  part.type === "text" ? <span key={i}>{part.text}</span> : null
-                )}
-              </div>
+              <div
+  className={`inline-block max-w-[85%] rounded-lg dark:bg-gray-700 dark:text-white ${
+    message.role === "user" ? "whitespace-pre-wrap" : ""
+  }`}
+>
+  {message.parts.map((part, i) =>
+    part.type === "text" ? (
+      message.role === "assistant" ? (
+        <Markdown key={i} text={part.text} />
+      ) : (
+        <span key={i}>{part.text}</span>
+      )
+    ) : null
+  )}
+</div>
             </div>
           );
         })}
@@ -85,12 +95,12 @@ export default function Chat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 rounded border px-3 py-2"
+          className="flex-1 rounded border bg-white px-3 py-2 text-black dark:bg-gray-800 dark:text-white"
         />
         <button
           type="submit"
           disabled={isBusy}
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
+          className="rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black disabled:opacity-50"
         >
           Send
         </button>
