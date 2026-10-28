@@ -46,6 +46,23 @@ export default function Home() {
     setConversations((prev) => [fresh, ...prev]);
     setActiveId(fresh.id);
   }
+    function handleRename(id: string, title: string) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title } : c))
+    );
+  }
+
+  function handleDelete(id: string) {
+    const remaining = conversations.filter((c) => c.id !== id);
+    if (remaining.length === 0) {
+      const fresh = createConversation();
+      setConversations([fresh]);
+      setActiveId(fresh.id);
+      return;
+    }
+    setConversations(remaining);
+    if (id === activeId) setActiveId(remaining[0].id);
+  }
 
   const handleMessagesChange = useCallback(
     (id: string, messages: ChatMessage[]) => {
@@ -74,6 +91,8 @@ export default function Home() {
         activeId={active.id}
         onNew={handleNew}
         onSelect={setActiveId}
+        onRename={handleRename}
+        onDelete={handleDelete}
       />
       <div className="min-w-0 flex-1">
         <Chat
