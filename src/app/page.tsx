@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Chat from "@/components/Chat";
 import Sidebar from "@/components/Sidebar";
-import type { ChatMessage } from "@/lib/types";
 import ThemeToggle from "@/components/ThemeToggle";
+import type { ChatMessage } from "@/lib/types";
 import {
   createConversation,
   loadConversations,
@@ -48,7 +48,8 @@ export default function Home() {
     setConversations((prev) => [fresh, ...prev]);
     setActiveId(fresh.id);
   }
-    function handleRename(id: string, title: string) {
+
+  function handleRename(id: string, title: string) {
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, title } : c))
     );
@@ -86,52 +87,62 @@ export default function Home() {
   const active = conversations.find((c) => c.id === activeId);
   if (!loaded || !active) return null;
 
-   return (
-    <div className="flex h-dvh">
-      <div
-        className={`fixed inset-y-0 left-0 z-30 bg-background transition-transform md:static md:translate-x-0 ${
-          menuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <Sidebar
-          conversations={conversations}
-          activeId={active.id}
-          onNew={() => {
-            handleNew();
-            setMenuOpen(false);
-          }}
-          onSelect={(id) => {
-            setActiveId(id);
-            setMenuOpen(false);
-          }}
-          onRename={handleRename}
-          onDelete={handleDelete}
-        />
-      </div>
-
-      {menuOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/40 md:hidden"
-          onClick={() => setMenuOpen(false)}
-        />
-      )}
-
-      <div className="relative min-w-0 flex-1">
-        <button
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open chat list"
-          className="absolute left-3 top-3 z-10 rounded border bg-white px-3 py-1 text-sm text-black md:hidden dark:bg-gray-800 dark:text-white"
-        >
-          ☰
-        </button>
-        <div className="absolute right-3 top-3 z-10">
-          <ThemeToggle />
+  return (
+    <div className="flex h-dvh flex-col">
+      {/* Header: full width, at the very top */}
+      <header className="flex shrink-0 items-center justify-between gap-3 bg-black px-4 py-3 text-white dark:bg-white dark:text-black">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open chat list"
+            className="rounded border border-gray-500 px-3 py-1 text-sm md:hidden"
+          >
+            ☰
+          </button>
+          <h1 className="text-lg font-semibold">
+            <span aria-hidden="true">🧑</span> Farhat&apos;s AI Chat
+          </h1>
         </div>
-        <Chat
-          key={active.id}
-          conversation={active}
-          onMessagesChange={handleMessagesChange}
-        />
+        <ThemeToggle />
+      </header>
+
+      {/* Below the header: sidebar on the left, chat on the right */}
+      <div className="flex min-h-0 flex-1">
+        <div
+          className={`fixed bottom-0 left-0 top-14 z-30 bg-background transition-transform md:static md:translate-x-0 ${
+            menuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <Sidebar
+            conversations={conversations}
+            activeId={active.id}
+            onNew={() => {
+              handleNew();
+              setMenuOpen(false);
+            }}
+            onSelect={(id) => {
+              setActiveId(id);
+              setMenuOpen(false);
+            }}
+            onRename={handleRename}
+            onDelete={handleDelete}
+          />
+        </div>
+
+        {menuOpen && (
+          <div
+            className="fixed inset-0 z-20 bg-black/40 md:hidden"
+            onClick={() => setMenuOpen(false)}
+          />
+        )}
+
+        <div className="min-w-0 flex-1">
+          <Chat
+            key={active.id}
+            conversation={active}
+            onMessagesChange={handleMessagesChange}
+          />
+        </div>
       </div>
     </div>
   );

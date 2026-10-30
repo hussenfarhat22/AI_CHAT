@@ -55,7 +55,7 @@ export default function Chat({
 
   return (
     <main className="mx-auto flex h-full w-full max-w-2xl flex-col p-4">
-      <div className="mb-4 flex items-center gap-2 pl-12 pr-28 md:pl-0">
+      <div className="mb-4 flex items-center gap-2">
         <label htmlFor="model" className="text-sm font-medium">
           Model:
         </label>
