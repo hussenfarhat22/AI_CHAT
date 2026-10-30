@@ -1,149 +1,77 @@
-"use client";
-
-import { useCallback, useEffect, useState } from "react";
-import Chat from "@/components/Chat";
-import Sidebar from "@/components/Sidebar";
+import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
-import type { ChatMessage } from "@/lib/types";
-import {
-  createConversation,
-  loadConversations,
-  makeTitle,
-  saveConversations,
-  type Conversation,
-} from "@/lib/storage";
+import { MODELS } from "@/lib/models";
 
-export default function Home() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+const FEATURES = [
+  {
+    icon: "⚡",
+    title: "Live streaming",
+    text: "Answers appear word by word as the model writes them.",
+  },
+  {
+    icon: "🔀",
+    title: "Switch models anytime",
+    text: "Change model mid-chat. The whole conversation comes with you.",
+  },
+  {
+    icon: "💾",
+    title: "Chats saved for you",
+    text: "Your conversations stay in your browser, ready to reopen.",
+  },
+];
 
-  // Load the saved chats once, after the page opens.
-  useEffect(() => {
-    const list = loadConversations();
-    if (list.length === 0) {
-      const fresh = createConversation();
-      setConversations([fresh]);
-      setActiveId(fresh.id);
-    } else {
-      setConversations(list);
-      setActiveId(list[0].id);
-    }
-    setLoaded(true);
-  }, []);
-
-  // Save the list every time it changes.
-  useEffect(() => {
-    if (loaded) saveConversations(conversations);
-  }, [conversations, loaded]);
-
-  function handleNew() {
-    const empty = conversations.find((c) => c.messages.length === 0);
-    if (empty) {
-      setActiveId(empty.id);
-      return;
-    }
-    const fresh = createConversation();
-    setConversations((prev) => [fresh, ...prev]);
-    setActiveId(fresh.id);
-  }
-
-  function handleRename(id: string, title: string) {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, title } : c))
-    );
-  }
-
-  function handleDelete(id: string) {
-    const remaining = conversations.filter((c) => c.id !== id);
-    if (remaining.length === 0) {
-      const fresh = createConversation();
-      setConversations([fresh]);
-      setActiveId(fresh.id);
-      return;
-    }
-    setConversations(remaining);
-    if (id === activeId) setActiveId(remaining[0].id);
-  }
-
-  const handleMessagesChange = useCallback(
-    (id: string, messages: ChatMessage[]) => {
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c.id !== id || c.messages.length === messages.length) return c;
-          return {
-            ...c,
-            messages,
-            title: c.title === "New chat" ? makeTitle(messages) : c.title,
-            updatedAt: Date.now(),
-          };
-        })
-      );
-    },
-    []
-  );
-
-  const active = conversations.find((c) => c.id === activeId);
-  if (!loaded || !active) return null;
-
+export default function WelcomePage() {
   return (
-    <div className="flex h-dvh flex-col">
-      {/* Header: full width, at the very top */}
-      <header className="flex shrink-0 items-center justify-between gap-3 bg-black px-4 py-3 text-white dark:bg-white dark:text-black">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open chat list"
-            className="rounded border border-gray-500 px-3 py-1 text-sm md:hidden"
-          >
-            ☰
-          </button>
-          <h1 className="text-lg font-semibold">
-            <span aria-hidden="true">🧑</span> Farhat&apos;s AI Chat
-          </h1>
-        </div>
+    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-linear-to-br from-indigo-50 via-white to-purple-50 px-6 py-16 text-center text-gray-900 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950 dark:text-white">
+      <div className="absolute right-4 top-4">
         <ThemeToggle />
-      </header>
-
-      {/* Below the header: sidebar on the left, chat on the right */}
-      <div className="flex min-h-0 flex-1">
-        <div
-          className={`fixed bottom-0 left-0 top-14 z-30 bg-background transition-transform md:static md:translate-x-0 ${
-            menuOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <Sidebar
-            conversations={conversations}
-            activeId={active.id}
-            onNew={() => {
-              handleNew();
-              setMenuOpen(false);
-            }}
-            onSelect={(id) => {
-              setActiveId(id);
-              setMenuOpen(false);
-            }}
-            onRename={handleRename}
-            onDelete={handleDelete}
-          />
-        </div>
-
-        {menuOpen && (
-          <div
-            className="fixed inset-0 z-20 bg-black/40 md:hidden"
-            onClick={() => setMenuOpen(false)}
-          />
-        )}
-
-        <div className="min-w-0 flex-1">
-          <Chat
-            key={active.id}
-            conversation={active}
-            onMessagesChange={handleMessagesChange}
-          />
-        </div>
       </div>
-    </div>
+
+      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-600 text-4xl shadow-lg">
+        <span aria-hidden="true">🧑</span>
+      </div>
+
+      <h1 className="text-4xl font-bold sm:text-6xl">Farhat&apos;s AI Chat</h1>
+
+      <p className="mt-4 max-w-xl text-lg text-gray-600 dark:text-gray-300">
+        Talk to the best AI models in one place, and switch between them in
+        the middle of a conversation without losing context.
+      </p>
+
+      <Link
+        href="/chat"
+        className="mt-8 rounded-full bg-indigo-600 px-8 py-3 text-lg font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-indigo-500"
+      >
+        Start chatting
+      </Link>
+
+      <ul className="mt-8 flex flex-wrap justify-center gap-2">
+        {MODELS.map((model) => (
+          <li
+            key={model.id}
+            className="rounded-full border border-gray-300 bg-white/70 px-3 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-white/10 dark:text-gray-200"
+          >
+            {model.provider}
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-14 grid w-full max-w-3xl gap-4 sm:grid-cols-3">
+        {FEATURES.map((feature) => (
+          <div
+            key={feature.title}
+            className="rounded-2xl border border-gray-200 bg-white/70 p-5 text-left shadow-sm dark:border-gray-700 dark:bg-white/5"
+          >
+            <div className="text-2xl" aria-hidden="true">
+              {feature.icon}
+            </div>
+            <h2 className="mt-2 font-semibold">{feature.title}</h2>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              {feature.text}
+            </p>
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }
