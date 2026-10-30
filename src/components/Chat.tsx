@@ -7,6 +7,21 @@ import { MODELS, DEFAULT_MODEL_ID } from "@/lib/models";
 import type { ChatMessage } from "@/lib/types";
 import type { Conversation } from "@/lib/storage";
 import Markdown from "@/components/Markdown";
+
+function readableError(error: Error): string {
+  const text = error.message;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed.error === "string") return parsed.error;
+  } catch {
+    // Not JSON: use the text as it is.
+  }
+  if (/failed to fetch|networkerror|load failed/i.test(text)) {
+    return "Network problem: could not reach the server. Check your connection and retry.";
+  }
+  return text || "Something went wrong. Please try again.";
+}
+
 export default function Chat({
   conversation,
   onMessagesChange,
@@ -17,7 +32,8 @@ export default function Chat({
   const [input, setInput] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
 
-  const { messages, sendMessage, status } = useChat<ChatMessage>({
+    const { messages, sendMessage, status, error, regenerate, clearError } =
+    useChat<ChatMessage>({
     id: conversation.id,
     messages: conversation.messages,
     transport: new DefaultChatTransport({ api: "/api/chat" }),
@@ -89,6 +105,28 @@ export default function Chat({
           );
         })}
       </div>
+      {error && (
+        <div
+          role="alert"
+          className="mt-3 flex items-start justify-between gap-3 rounded border border-red-400 bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200"
+        >
+          <span>{readableError(error)}</span>
+          <span className="flex shrink-0 gap-3">
+            <button
+              onClick={() => regenerate({ body: { modelId } })}
+              className="underline"
+            >
+              Retry
+            </button>
+            <button onClick={clearError} className="underline">
+              Dismiss
+            </button>
+          </span>
+        </div>
+      )}
+
+
+
 
       <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
         <input
