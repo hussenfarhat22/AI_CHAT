@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+//import { useEffect, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { MODELS, DEFAULT_MODEL_ID } from "@/lib/models";
+import { MODELS, DEFAULT_MODEL_ID, getModel } from "@/lib/models";
 import type { ChatMessage } from "@/lib/types";
 import type { Conversation } from "@/lib/storage";
 import Markdown from "@/components/Markdown";
+import { useEffect, useRef, useState } from "react";
+
 
 function readableError(error: Error): string {
   const text = error.message;
@@ -21,6 +23,12 @@ function readableError(error: Error): string {
   }
   return text || "Something went wrong. Please try again.";
 }
+
+const MAX_IMAGES = 4;
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+type Attachment = { id: string; file: File; url: string };
 
 export default function Chat({
   conversation,
@@ -39,8 +47,49 @@ export default function Chat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
 
-  const isBusy = status === "submitted" || status === "streaming";
+  const isBusy = status === "submitted" || status === "streaming" ;
 
+  const selected = getModel(modelId);
+    const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function addFiles(list: FileList | File[]) {
+    const incoming = Array.from(list);
+    const accepted: Attachment[] = [];
+    let message: string | null = null;
+
+    for (const file of incoming) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        message = `"${file.name}" is not a supported image (use PNG, JPEG, WebP or GIF).`;
+        continue;
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        message = `"${file.name}" is larger than 5 MB.`;
+        continue;
+      }
+      if (attachments.length + accepted.length >= MAX_IMAGES) {
+        message = `You can attach up to ${MAX_IMAGES} images.`;
+        break;
+      }
+      accepted.push({
+        id: crypto.randomUUID(),
+        file,
+        url: URL.createObjectURL(file),
+      });
+    }
+
+    setAttachError(message);
+    if (accepted.length > 0) {
+      setAttachments((prev) => [...prev, ...accepted]);
+    }
+  }
+
+  function removeAttachment(id: string) {
+    const target = attachments.find((a) => a.id === id);
+    if (target) URL.revokeObjectURL(target.url);
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }
   useEffect(() => {
     if (isBusy) return;
     onMessagesChange(conversation.id, messages);
@@ -128,40 +177,116 @@ export default function Chat({
 
 
 
-            <form
+                  <form
         onSubmit={handleSubmit}
         className="mt-3 rounded-2xl border border-gray-300 bg-white p-2 shadow-sm focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-200 dark:border-gray-600 dark:bg-gray-800 dark:focus-within:ring-indigo-900"
       >
+        {selected && (
+          <div className="flex flex-wrap gap-1 px-2 pt-1">
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                selected.vision
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                  : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+              }`}
+            >
+              {selected.vision ? "Vision" : "Text only"}
+            </span>
+            {selected.tools && (
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                Tools
+              </span>
+            )}
+          </div>
+        )}
+
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-2 pt-2">
+            {attachments.map((a) => (
+              <div key={a.id} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={a.url}
+                  alt={a.file.name}
+                  className="h-16 w-16 rounded-lg object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(a.id)}
+                  aria-label={`Remove ${a.file.name}`}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-xs text-white"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {attachError && (
+          <p
+            role="alert"
+            className="px-2 pt-1 text-xs text-red-600 dark:text-red-400"
+          >
+            {attachError}
+          </p>
+        )}
+
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
           className="w-full bg-transparent px-2 py-2 text-black outline-none placeholder:text-gray-400 dark:text-white"
         />
+
         <div className="mt-1 flex items-center justify-between gap-2">
-          <div className="relative min-w-0">
-            <label htmlFor="model" className="sr-only">
-              Model
-            </label>
-            <select
-              id="model"
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-              className="max-w-[12rem] cursor-pointer appearance-none truncate rounded-full bg-indigo-50 py-1.5 pl-3 pr-8 text-sm font-medium text-indigo-700 outline-none transition hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-200 dark:hover:bg-indigo-900 [&>option]:bg-white [&>option]:text-black"
+          <div className="flex min-w-0 items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Attach images"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             >
-              {MODELS.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.provider} - {model.name}
-                </option>
-              ))}
-            </select>
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-indigo-700 dark:text-indigo-200"
-            >
-              ▾
-            </span>
+              📎
+            </button>
+
+            <div className="relative min-w-0">
+              <label htmlFor="model" className="sr-only">
+                Model
+              </label>
+              <select
+                id="model"
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+                className="max-w-[12rem] cursor-pointer appearance-none truncate rounded-full bg-indigo-50 py-1.5 pl-3 pr-8 text-sm font-medium text-indigo-700 outline-none transition hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-200 dark:hover:bg-indigo-900 [&>option]:bg-white [&>option]:text-black"
+              >
+                {MODELS.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.provider} - {model.name}
+                    {model.vision ? "  👁" : ""}
+                  </option>
+                ))}
+              </select>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-indigo-700 dark:text-indigo-200"
+              >
+                ▾
+              </span>
+            </div>
           </div>
+
           <button
             type="submit"
             disabled={isBusy}
