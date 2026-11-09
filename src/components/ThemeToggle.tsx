@@ -26,7 +26,7 @@ export default function ThemeToggle() {
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       className="flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500"
     >
-      <span aria-hidden="true">{dark ? "☀️" : ""}</span>
+      <span aria-hidden="true">{dark ? "☀️" : "🌙"}</span>
       {dark ? "Light" : "Dark"}
     </button>
   );

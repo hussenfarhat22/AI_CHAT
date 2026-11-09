@@ -30,6 +30,16 @@ const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 type Attachment = { id: string; file: File; url: string };
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+
 export default function Chat({
   conversation,
   onMessagesChange,
@@ -136,10 +146,40 @@ export default function Chat({
     onMessagesChange(conversation.id, messages);
   }, [messages, isBusy, conversation.id, onMessagesChange]);
 
-  function handleSubmit(e: React.FormEvent) {
+   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isBusy) return;
-    sendMessage({ text: input }, { body: { modelId } });
+    const text = input.trim();
+    if ((!text && attachments.length === 0) || isBusy) return;
+
+    let fileParts;
+    try {
+      fileParts = await Promise.all(
+        attachments.map(async (a) => ({
+          type: "file" as const,
+          mediaType: a.file.type,
+          filename: a.file.name,
+          url: await fileToDataUrl(a.file),
+        }))
+      );
+    } catch {
+      setAttachError("Could not read an image. Please try again.");
+      return;
+    }
+
+    sendMessage(
+      {
+        role: "user",
+        parts: [
+          ...(text ? [{ type: "text" as const, text }] : []),
+          ...fileParts,
+        ],
+      },
+      { body: { modelId } }
+    );
+
+    attachments.forEach((a) => URL.revokeObjectURL(a.url));
+    setAttachments([]);
+    setAttachError(null);
     setInput("");
   }
 
@@ -168,6 +208,20 @@ export default function Chat({
             >
               {isUser ? (
                 <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-indigo-600 px-4 py-2.5 text-white shadow-sm">
+                                    <div className="flex flex-wrap gap-2">
+                    {message.parts.map((part, i) =>
+                      part.type === "file" &&
+                      part.mediaType.startsWith("image/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={i}
+                          src={part.url}
+                          alt={part.filename ?? "Attached image"}
+                          className="mb-2 max-h-48 rounded-lg"
+                        />
+                      ) : null
+                    )}
+                  </div>
                   {message.parts.map((part, i) =>
                     part.type === "text" ? (
                       <span key={i}>{part.text}</span>

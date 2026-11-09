@@ -17,7 +17,19 @@ export function loadConversations(): Conversation[] {
     return [];
   }
 }
-
+function stripImages(list: Conversation[]): Conversation[] {
+  return list.map((c) => ({
+    ...c,
+    messages: c.messages.map((m) => ({
+      ...m,
+      parts: m.parts.map((p) =>
+        p.type === "file" && p.url.startsWith("data:")
+          ? { type: "text" as const, text: "[image not saved]" }
+          : p
+      ),
+    })),
+  }));
+}
 export function saveConversations(list: Conversation[]): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
