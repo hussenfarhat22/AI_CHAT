@@ -53,6 +53,8 @@ export default function Chat({
     const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
 
   function addFiles(list: FileList | File[]) {
     const incoming = Array.from(list);
@@ -90,6 +92,45 @@ export default function Chat({
     if (target) URL.revokeObjectURL(target.url);
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
+
+    function hasFiles(e: React.DragEvent) {
+    return Array.from(e.dataTransfer.types).includes("Files");
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragging(true);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); // without this, the browser refuses the drop
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    dragDepth.current -= 1;
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0;
+      setDragging(false);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    addFiles(e.dataTransfer.files);
+  }
+    function handlePaste(e: React.ClipboardEvent) {
+    if (e.clipboardData.files.length === 0) return; // plain text: let it paste
+    e.preventDefault();
+    addFiles(e.clipboardData.files);
+  }
+
   useEffect(() => {
     if (isBusy) return;
     onMessagesChange(conversation.id, messages);
@@ -103,7 +144,14 @@ export default function Chat({
   }
 
   return (
-    <main className="mx-auto flex h-full w-full max-w-2xl flex-col p-4">
+     <main
+      className="relative mx-auto flex h-full w-full max-w-2xl flex-col p-4"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onPaste={handlePaste}
+    >
       
 
       <div className="flex-1 space-y-4 overflow-y-auto">
@@ -274,7 +322,7 @@ export default function Chat({
                 {MODELS.map((model) => (
                   <option key={model.id} value={model.id}>
                     {model.provider} - {model.name}
-                    {model.vision ? "  👁" : ""}
+                    {model.vision ? "  " : ""}
                   </option>
                 ))}
               </select>
@@ -296,6 +344,12 @@ export default function Chat({
           </button>
         </div>
       </form>
+  {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-indigo-500 bg-indigo-50/80 text-lg font-medium text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-200">
+          Drop images to attach
+        </div>
+      )}
+
     </main>
   );
 }
