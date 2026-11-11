@@ -1,28 +1,13 @@
 "use client";
 
-//import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import { upload } from "@vercel/blob/client";
+import Markdown from "@/components/Markdown";
 import { MODELS, DEFAULT_MODEL_ID, getModel } from "@/lib/models";
 import type { ChatMessage } from "@/lib/types";
 import type { Conversation } from "@/lib/storage";
-import Markdown from "@/components/Markdown";
-import { useEffect, useRef, useState } from "react";
-
-
-function readableError(error: Error): string {
-  const text = error.message;
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed && typeof parsed.error === "string") return parsed.error;
-  } catch {
-    
-  }
-  if (/failed to fetch|networkerror|load failed/i.test(text)) {
-    return "Network problem: could not reach the server. Check your connection and retry.";
-  }
-  return text || "Something went wrong. Please try again.";
-}
 
 const MAX_IMAGES = 4;
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -30,15 +15,19 @@ const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 type Attachment = { id: string; file: File; url: string };
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+function readableError(error: Error): string {
+  const text = error.message;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed.error === "string") return parsed.error;
+  } catch {
+    // Not JSON: use the text as it is.
+  }
+  if (/failed to fetch|networkerror|load failed/i.test(text)) {
+    return "Network problem: could not reach the server. Check your connection and retry.";
+  }
+  return text || "Something went wrong. Please try again.";
 }
-
 
 export default function Chat({
   conversation,
@@ -50,21 +39,22 @@ export default function Chat({
   const [input, setInput] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
 
-    const { messages, sendMessage, status, error, regenerate, clearError } =
+  const { messages, sendMessage, status, error, regenerate, clearError } =
     useChat<ChatMessage>({
-    id: conversation.id,
-    messages: conversation.messages,
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
-  });
+      id: conversation.id,
+      messages: conversation.messages,
+      transport: new DefaultChatTransport({ api: "/api/chat" }),
+    });
 
-  const isBusy = status === "submitted" || status === "streaming" ;
-
+  const isBusy = status === "submitted" || status === "streaming";
   const selected = getModel(modelId);
-    const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
+  const [uploading, setUploading] = useState(false);
 
   function addFiles(list: FileList | File[]) {
     const incoming = Array.from(list);
@@ -103,7 +93,7 @@ export default function Chat({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
-    function hasFiles(e: React.DragEvent) {
+  function hasFiles(e: React.DragEvent) {
     return Array.from(e.dataTransfer.types).includes("Files");
   }
 
@@ -135,7 +125,8 @@ export default function Chat({
     setDragging(false);
     addFiles(e.dataTransfer.files);
   }
-    function handlePaste(e: React.ClipboardEvent) {
+
+  function handlePaste(e: React.ClipboardEvent) {
     if (e.clipboardData.files.length === 0) return; // plain text: let it paste
     e.preventDefault();
     addFiles(e.clipboardData.files);
@@ -146,25 +137,35 @@ export default function Chat({
     onMessagesChange(conversation.id, messages);
   }, [messages, isBusy, conversation.id, onMessagesChange]);
 
-   async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
-    if ((!text && attachments.length === 0) || isBusy) return;
+    if ((!text && attachments.length === 0) || isBusy || uploading) return;
 
     let fileParts;
+    setUploading(true);
     try {
       fileParts = await Promise.all(
-        attachments.map(async (a) => ({
-          type: "file" as const,
-          mediaType: a.file.type,
-          filename: a.file.name,
-          url: await fileToDataUrl(a.file),
-        }))
+        attachments.map(async (a) => {
+          const blob = await upload(a.file.name, a.file, {
+            access: "public",
+            handleUploadUrl: "/api/upload",
+          });
+          return {
+            type: "file" as const,
+            mediaType: a.file.type,
+            filename: a.file.name,
+            url: blob.url,
+          };
+        })
       );
-    } catch {
-      setAttachError("Could not read an image. Please try again.");
+    } catch (err) {
+      console.error("[upload] failed:", err);
+      setAttachError("Upload failed. Please try again.");
+      setUploading(false);
       return;
     }
+    setUploading(false);
 
     sendMessage(
       {
@@ -184,7 +185,7 @@ export default function Chat({
   }
 
   return (
-     <main
+    <main
       className="relative mx-auto flex h-full w-full max-w-2xl flex-col p-4"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
@@ -192,10 +193,8 @@ export default function Chat({
       onDrop={handleDrop}
       onPaste={handlePaste}
     >
-      
-
-      <div className="flex-1 space-y-4 overflow-y-auto">
-                {messages.map((message) => {
+      <div className="flex-1 space-y-6 overflow-y-auto">
+        {messages.map((message) => {
           const modelName = MODELS.find(
             (m) => m.id === message.metadata?.model
           )?.name;
@@ -208,7 +207,7 @@ export default function Chat({
             >
               {isUser ? (
                 <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-indigo-600 px-4 py-2.5 text-white shadow-sm">
-                                    <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {message.parts.map((part, i) =>
                       part.type === "file" &&
                       part.mediaType.startsWith("image/") ? (
@@ -256,6 +255,7 @@ export default function Chat({
           );
         })}
       </div>
+
       {error && (
         <div
           role="alert"
@@ -276,10 +276,7 @@ export default function Chat({
         </div>
       )}
 
-
-
-
-                  <form
+      <form
         onSubmit={handleSubmit}
         className="mt-3 rounded-2xl border border-gray-300 bg-white p-2 shadow-sm focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-200 dark:border-gray-600 dark:bg-gray-800 dark:focus-within:ring-indigo-900"
       >
@@ -376,7 +373,7 @@ export default function Chat({
                 {MODELS.map((model) => (
                   <option key={model.id} value={model.id}>
                     {model.provider} - {model.name}
-                    {model.vision ? "  " : ""}
+                    {model.vision ? "  👁" : ""}
                   </option>
                 ))}
               </select>
@@ -391,19 +388,19 @@ export default function Chat({
 
           <button
             type="submit"
-            disabled={isBusy}
+            disabled={isBusy || uploading}
             className="rounded-full bg-indigo-600 px-5 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
           >
-            Send
+            {uploading ? "Uploading..." : "Send"}
           </button>
         </div>
       </form>
-  {dragging && (
+
+      {dragging && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-indigo-500 bg-indigo-50/80 text-lg font-medium text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-200">
           Drop images to attach
         </div>
       )}
-
     </main>
   );
 }
