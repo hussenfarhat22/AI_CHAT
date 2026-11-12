@@ -63,6 +63,17 @@ function friendlyError(error: unknown): string {
   }
     return `Something went wrong while generating the answer. (debug: ${describe(error)})`;
 }
+function isAllowedImageUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (
+      u.protocol === "https:" &&
+      u.hostname.endsWith(".public.blob.vercel-storage.com")
+    );
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(req: Request) {
   const { messages, modelId }: { messages: UIMessage[]; modelId: string } =
@@ -74,10 +85,22 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+    const badImage = messages.some((m) =>
+    m.parts.some(
+      (p) => p.type === "file" && !isAllowedImageUrl(p.url)
+    )
+  );
+  if (badImage) {
+    return Response.json(
+      { error: "Only images uploaded through this app are allowed." },
+      { status: 400 }
+    );
+  }
 
   const result = streamText({
     model: openrouter.chat(modelId),
     messages: await convertToModelMessages(trimMessages(messages)),
+        experimental_download: async (requested) => requested.map(() => null),
   });
 
   return result.toUIMessageStreamResponse({
