@@ -34,7 +34,14 @@ function getStatus(error: unknown): number | undefined {
   if (typeof e.statusCode === "number") return e.statusCode;
   return getStatus(e.lastError);
 }
-
+function describe(error: unknown): string {
+  if (error instanceof Error) {
+    const cause = (error as { cause?: unknown }).cause;
+    const extra = cause instanceof Error ? ` | cause: ${cause.message}` : "";
+    return `${error.name}: ${error.message}${extra}`.slice(0, 300);
+  }
+  return String(error).slice(0, 300);
+}
 function friendlyError(error: unknown): string {
   console.error("[chat] stream error:", error);
   const status = getStatus(error);
@@ -54,7 +61,7 @@ function friendlyError(error: unknown): string {
   if (status !== undefined && status >= 500) {
     return "The model provider had a problem. Retry, or choose another model.";
   }
-  return "Something went wrong while generating the answer. Please try again.";
+    return `Something went wrong while generating the answer. (debug: ${describe(error)})`;
 }
 
 export async function POST(req: Request) {
