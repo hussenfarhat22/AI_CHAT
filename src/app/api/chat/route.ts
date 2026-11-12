@@ -61,7 +61,7 @@ function friendlyError(error: unknown): string {
   if (status !== undefined && status >= 500) {
     return "The model provider had a problem. Retry, or choose another model.";
   }
-    return `Something went wrong while generating the answer. (debug: ${describe(error)})`;
+     return "Something went wrong while generating the answer. Please try again.";
 }
 function isAllowedImageUrl(url: string): boolean {
   try {
