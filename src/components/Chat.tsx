@@ -242,11 +242,67 @@ export default function Chat({
                       </span>
                     )}
                     <div className="break-words leading-relaxed text-gray-900 dark:text-gray-100">
-                      {message.parts.map((part, i) =>
-                        part.type === "text" ? (
-                          <Markdown key={i} text={part.text} />
-                        ) : null
-                      )}
+                                            {message.parts.map((part, i) => {
+                        if (part.type === "text") {
+                          return <Markdown key={i} text={part.text} />;
+                        }
+                        if (part.type === "tool-generate_image") {
+                          const tool = part as unknown as {
+                            state: string;
+                            input?: { prompt?: string };
+                            output?: { url?: string; error?: string };
+                          };
+                          if (tool.state === "output-available") {
+                            if (tool.output?.url) {
+                              return (
+                                <div key={i} className="my-2 max-w-sm">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={tool.output.url}
+                                    alt={tool.input?.prompt ?? "Generated image"}
+                                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700"
+                                  />
+                                  <a
+                                    href={`${tool.output.url}?download=1`}
+                                    download="generated-image"
+                                    className="mt-2 inline-block rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+                                  >
+                                    Download
+                                  </a>
+                                </div>
+                              );
+                            }
+                            return (
+                              <p
+                                key={i}
+                                className="my-2 text-sm text-red-600 dark:text-red-400"
+                              >
+                                {tool.output?.error ??
+                                  "The image could not be created."}
+                              </p>
+                            );
+                          }
+                          if (tool.state === "output-error") {
+                            return (
+                              <p
+                                key={i}
+                                className="my-2 text-sm text-red-600 dark:text-red-400"
+                              >
+                                The image could not be created.
+                              </p>
+                            );
+                          }
+                          return (
+                            <div
+                              key={i}
+                              className="my-2 flex h-48 w-full max-w-sm animate-pulse items-center justify-center rounded-xl bg-gray-200 text-sm text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                            >
+                              Creating your image...
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
                     </div>
                   </div>
                 </div>
