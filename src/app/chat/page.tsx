@@ -19,7 +19,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Load the saved chats once, after the page opens.
+  
   useEffect(() => {
     const list = loadConversations();
     if (list.length === 0) {
@@ -33,7 +33,7 @@ export default function Home() {
     setLoaded(true);
   }, []);
 
-  // Save the list every time it changes.
+  
   useEffect(() => {
     if (loaded) saveConversations(conversations);
   }, [conversations, loaded]);
