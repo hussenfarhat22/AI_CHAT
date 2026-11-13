@@ -206,24 +206,19 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: openrouter.chat(modelId),
-    messages: [
-      {
-        role: "system",
-        content:
-          `You are a helpful assistant. Today's date is ${today} (UTC). ` +
-          (canUseTools
-            ? "You can create images with the generate_image tool when the user asks for a picture. After the tool returns, reply with one short sentence and do not repeat the image link."
-            : ""),
-      },
-      ...(await convertToModelMessages(trimMessages(prepared), {
-        ignoreIncompleteToolCalls: true,
-      })),
-    ],
+    instructions:
+      `You are a helpful assistant. Today's date is ${today} (UTC). ` +
+      (canUseTools
+        ? "You can create images with the generate_image tool when the user asks for a picture. After the tool returns, reply with one short sentence and do not repeat the image link."
+        : ""),
+    messages: await convertToModelMessages(trimMessages(prepared), {
+      ignoreIncompleteToolCalls: true,
+    }),
     tools: canUseTools ? tools : undefined,
     stopWhen: stepCountIs(3),
     experimental_download: async (requested) => requested.map(() => null),
   });
-
+  
   return result.toUIMessageStreamResponse({
     messageMetadata: ({ part }) => {
       if (part.type === "start") {
