@@ -8,8 +8,8 @@ import {
 } from "ai";
 import { z } from "zod";
 import { getModel, isValidModelId } from "@/lib/models";
-import { generateImageToBlob } from "@/lib/generate-image";
-
+//import { generateImageToBlob } from "@/lib/generate-image";
+import { generateImageToBlob, ImageLimitError } from "@/lib/generate-image";
 export const maxDuration = 60;
 
 const openrouter = createOpenRouter({
@@ -188,9 +188,14 @@ export async function POST(req: Request) {
             : [];
           const { url } = await generateImageToBlob(prompt, references);
           return { url, prompt };
-        } catch (e) {
+                } catch (e) {
           console.error("[image] failed:", e);
-          return { error: "The image could not be created. Please try again." };
+          return {
+            error:
+              e instanceof ImageLimitError
+                ? e.message
+                : "The image could not be created. Please try again.",
+          };
         }
       },
     }),
@@ -218,7 +223,7 @@ export async function POST(req: Request) {
     stopWhen: stepCountIs(3),
     experimental_download: async (requested) => requested.map(() => null),
   });
-  
+
   return result.toUIMessageStreamResponse({
     messageMetadata: ({ part }) => {
       if (part.type === "start") {
