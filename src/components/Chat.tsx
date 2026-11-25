@@ -5,15 +5,26 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { upload } from "@vercel/blob/client";
 import Markdown from "@/components/Markdown";
+import {
+  FILE_ACCEPT,
+  IMAGE_TYPES,
+  docContentType,
+  isDocumentName,
+} from "@/lib/files";
 import { MODELS, DEFAULT_MODEL_ID, getModel } from "@/lib/models";
 import type { ChatMessage } from "@/lib/types";
 import type { Conversation } from "@/lib/storage";
 
-const MAX_IMAGES = 4;
-const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const MAX_FILES = 4;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_DOC_BYTES = 10 * 1024 * 1024; // 10 MB
 
-type Attachment = { id: string; file: File; url: string };
+type Attachment = {
+  id: string;
+  file: File;
+  url: string; // preview link, only for images
+  kind: "image" | "doc";
+};
 
 function readableError(error: Error): string {
   const text = error.message;
@@ -62,22 +73,25 @@ export default function Chat({
     let message: string | null = null;
 
     for (const file of incoming) {
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        message = `"${file.name}" is not a supported image (use PNG, JPEG, WebP or GIF).`;
+      const isImage = IMAGE_TYPES.includes(file.type);
+      const isDoc = !isImage && isDocumentName(file.name);
+      if (!isImage && !isDoc) {
+        message = `"${file.name}" is not supported. Use images, PDF, Word, Excel, CSV, text or code files.`;
         continue;
       }
-      if (file.size > MAX_FILE_BYTES) {
-        message = `"${file.name}" is larger than 5 MB.`;
+      if (file.size > (isImage ? MAX_IMAGE_BYTES : MAX_DOC_BYTES)) {
+        message = `"${file.name}" is larger than ${isImage ? 5 : 10} MB.`;
         continue;
       }
-      if (attachments.length + accepted.length >= MAX_IMAGES) {
-        message = `You can attach up to ${MAX_IMAGES} images.`;
+      if (attachments.length + accepted.length >= MAX_FILES) {
+        message = `You can attach up to ${MAX_FILES} files.`;
         break;
       }
       accepted.push({
         id: crypto.randomUUID(),
         file,
-        url: URL.createObjectURL(file),
+        kind: isImage ? "image" : "doc",
+        url: isImage ? URL.createObjectURL(file) : "",
       });
     }
 
@@ -89,7 +103,7 @@ export default function Chat({
 
   function removeAttachment(id: string) {
     const target = attachments.find((a) => a.id === id);
-    if (target) URL.revokeObjectURL(target.url);
+    if (target?.url) URL.revokeObjectURL(target.url);
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
@@ -142,18 +156,29 @@ export default function Chat({
     const text = input.trim();
     if ((!text && attachments.length === 0) || isBusy || uploading) return;
 
+    const hasImage = attachments.some((a) => a.kind === "image");
+    if (hasImage && !selected?.vision) {
+      setAttachError(
+        "This model can't read images. Choose a model with the Vision badge, or remove the images."
+      );
+      return;
+    }
+
     let fileParts;
     setUploading(true);
     try {
       fileParts = await Promise.all(
         attachments.map(async (a) => {
+          const type =
+            a.kind === "image" ? a.file.type : docContentType(a.file.name);
           const blob = await upload(a.file.name, a.file, {
             access: "public",
             handleUploadUrl: "/api/upload",
+            contentType: type,
           });
           return {
             type: "file" as const,
-            mediaType: a.file.type,
+            mediaType: type,
             filename: a.file.name,
             url: blob.url,
           };
@@ -178,7 +203,9 @@ export default function Chat({
       { body: { modelId } }
     );
 
-    attachments.forEach((a) => URL.revokeObjectURL(a.url));
+    attachments.forEach((a) => {
+      if (a.url) URL.revokeObjectURL(a.url);
+    });
     setAttachments([]);
     setAttachError(null);
     setInput("");
@@ -208,18 +235,34 @@ export default function Chat({
               {isUser ? (
                 <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-indigo-600 px-4 py-2.5 text-white shadow-sm">
                   <div className="flex flex-wrap gap-2">
-                    {message.parts.map((part, i) =>
-                      part.type === "file" &&
-                      part.mediaType.startsWith("image/") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                    {message.parts.map((part, i) => {
+                      if (part.type !== "file") return null;
+                      if (part.mediaType.startsWith("image/")) {
+                        return (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={i}
+                            src={part.url}
+                            alt={part.filename ?? "Attached image"}
+                            className="mb-2 max-h-48 rounded-lg"
+                          />
+                        );
+                      }
+                      return (
+                        <a
                           key={i}
-                          src={part.url}
-                          alt={part.filename ?? "Attached image"}
-                          className="mb-2 max-h-48 rounded-lg"
-                        />
-                      ) : null
-                    )}
+                          href={part.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mb-2 inline-flex max-w-full items-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-xs underline"
+                        >
+                          <span aria-hidden="true">📄</span>
+                          <span className="truncate">
+                            {part.filename ?? "file"}
+                          </span>
+                        </a>
+                      );
+                    })}
                   </div>
                   {message.parts.map((part, i) =>
                     part.type === "text" ? (
@@ -242,7 +285,7 @@ export default function Chat({
                       </span>
                     )}
                     <div className="break-words leading-relaxed text-gray-900 dark:text-gray-100">
-                                            {message.parts.map((part, i) => {
+                      {message.parts.map((part, i) => {
                         if (part.type === "text") {
                           return <Markdown key={i} text={part.text} />;
                         }
@@ -359,12 +402,21 @@ export default function Chat({
           <div className="flex flex-wrap gap-2 px-2 pt-2">
             {attachments.map((a) => (
               <div key={a.id} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={a.url}
-                  alt={a.file.name}
-                  className="h-16 w-16 rounded-lg object-cover"
-                />
+                {a.kind === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={a.url}
+                    alt={a.file.name}
+                    className="h-16 w-16 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 max-w-[10rem] items-center gap-2 rounded-lg bg-gray-100 px-3 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                    <span aria-hidden="true" className="text-lg">
+                      📄
+                    </span>
+                    <span className="truncate">{a.file.name}</span>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => removeAttachment(a.id)}
@@ -399,7 +451,7 @@ export default function Chat({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept={FILE_ACCEPT}
               multiple
               className="hidden"
               onChange={(e) => {
@@ -410,7 +462,7 @@ export default function Chat({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Attach images"
+              aria-label="Attach files"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               📎
@@ -454,7 +506,7 @@ export default function Chat({
 
       {dragging && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-indigo-500 bg-indigo-50/80 text-lg font-medium text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-200">
-          Drop images to attach
+          Drop files to attach
         </div>
       )}
     </main>

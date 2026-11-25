@@ -2,7 +2,7 @@ import { list, put } from "@vercel/blob";
 
 const IMAGE_MODEL = "google/gemini-3.1-flash-lite-image";
 
-const MAX_PER_HOUR = 1;
+const MAX_PER_HOUR = 3;
 const MAX_PER_DAY = 10;
 const MAX_TOTAL = 100;
 
