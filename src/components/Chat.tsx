@@ -14,6 +14,8 @@ import {
 import { MODELS, DEFAULT_MODEL_ID, getModel } from "@/lib/models";
 import type { ChatMessage } from "@/lib/types";
 import type { Conversation } from "@/lib/storage";
+import InvoiceResult from "@/components/InvoiceResult";
+import type { Invoice } from "@/lib/schemas";
 
 const MAX_FILES = 4;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -341,6 +343,43 @@ export default function Chat({
                               className="my-2 flex h-48 w-full max-w-sm animate-pulse items-center justify-center rounded-xl bg-gray-200 text-sm text-gray-600 dark:bg-gray-700 dark:text-gray-300"
                             >
                               Creating your image...
+                            </div>
+                          );
+                        }
+                                                if (part.type === "tool-extract_invoice") {
+                          const t = part as unknown as {
+                            state: string;
+                            output?: { data?: Invoice; error?: string };
+                          };
+                          if (t.state === "output-available") {
+                            if (t.output?.data) {
+                              return <InvoiceResult key={i} data={t.output.data} />;
+                            }
+                            return (
+                              <p
+                                key={i}
+                                className="my-2 text-sm text-red-600 dark:text-red-400"
+                              >
+                                {t.output?.error ?? "The data could not be extracted."}
+                              </p>
+                            );
+                          }
+                          if (t.state === "output-error") {
+                            return (
+                              <p
+                                key={i}
+                                className="my-2 text-sm text-red-600 dark:text-red-400"
+                              >
+                                The data could not be extracted.
+                              </p>
+                            );
+                          }
+                          return (
+                            <div
+                              key={i}
+                              className="my-2 flex h-24 w-full max-w-lg animate-pulse items-center justify-center rounded-xl bg-gray-200 text-sm text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                            >
+                              Extracting data...
                             </div>
                           );
                         }
