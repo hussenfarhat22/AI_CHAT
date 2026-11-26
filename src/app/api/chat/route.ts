@@ -105,17 +105,21 @@ const MAX_TOTAL_DOC_CHARS = 120_000; // all documents in one request
 
 async function expandDocuments(messages: UIMessage[]): Promise<UIMessage[]> {
   let budget = MAX_TOTAL_DOC_CHARS;
-  const cache = new Map<string, string>();
+    const cache = new Map<string, { text: string; notes: string[] }>();
 
-  async function readDocument(url: string, filename: string): Promise<string> {
+    async function readDocument(
+    url: string,
+    filename: string
+  ): Promise<{ text: string; notes: string[] }> {
     const cached = cache.get(url);
-    if (cached !== undefined) return cached;
+    if (cached) return cached;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Download failed (${res.status})`);
     const buffer = Buffer.from(await res.arrayBuffer());
     const parsed = await parseFile(buffer, filename);
-    cache.set(url, parsed.text);
-    return parsed.text;
+    const doc = { text: parsed.text, notes: parsed.notes };
+    cache.set(url, doc);
+    return doc;
   }
 
   const result: UIMessage[] = [];
@@ -125,7 +129,8 @@ async function expandDocuments(messages: UIMessage[]): Promise<UIMessage[]> {
       if (p.type === "file" && !p.mediaType.startsWith("image/")) {
         const name = p.filename ?? "file";
         try {
-          const full = await readDocument(p.url, name);
+                   const doc = await readDocument(p.url, name);
+          const full = doc.text;
           const allowed = Math.max(0, Math.min(MAX_DOC_CHARS, budget));
           const shown = full.slice(0, allowed);
           budget -= shown.length;
@@ -133,9 +138,13 @@ async function expandDocuments(messages: UIMessage[]): Promise<UIMessage[]> {
             full.length > shown.length
               ? `\n[The file was cut: only the first ${shown.length} of ${full.length} characters are shown.]`
               : "";
+          const scanned = doc.notes.some((n) => n.includes("scan"));
+          const warning = scanned
+            ? "[Warning: almost no text could be extracted. This looks like a scanned PDF made of pictures. Tell the user you cannot read it, and suggest attaching the pages as images instead. Do not guess its content.]\n"
+            : "";
           parts.push({
             type: "text",
-            text: `[Attached file: ${name}]\n${shown}${cut}\n[End of file: ${name}]`,
+            text: `[Attached file: ${name}]\n${warning}${shown}${cut}\n[End of file: ${name}]`,
           });
         } catch (e) {
           console.error("[files] could not read", name, e);
